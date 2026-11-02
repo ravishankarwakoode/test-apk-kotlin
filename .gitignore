@@ -1,0 +1,13 @@
+# Gradle files
+.gradle/
+build/
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin
+*.class
+*.kt.swp
+
+# Generated reports
+*_report.html
