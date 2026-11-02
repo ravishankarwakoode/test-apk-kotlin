@@ -1,50 +1,24 @@
 # test-apk-kotlin
 
-A Kotlin desktop/console application that analyzes an APK file and generates a full APK security and metadata report in HTML.
+A Kotlin desktop APK analyzer with a cleaner Swing-based user interface.
 
 ## Features
 
-- Reads APK file metadata
-- Extracts package name, version name, version code
-- Reads minSdk and targetSdk
-- Lists permissions, activities, services, receivers, and providers
-- Lists native libraries under `lib/`
-- Lists `META-INF` files
-- Calculates SHA-256 hash
-- Saves a full HTML report next to the APK
-
-## Project structure
-
-```text
-.
-├── build.gradle.kts
-├── settings.gradle.kts
-├── README.md
-├── .gitignore
-└── src/
-    └── main/
-        └── kotlin/
-            └── com/example/apkreport/Main.kt
-```
+- Browse and select an APK file from the desktop UI
+- Inspect manifest metadata
+- Get package name, version name, version code, SDK values
+- List permissions, activities, services, receivers, providers
+- Detect native libraries and META-INF entries
+- Calculate SHA-256
+- Generate and save a full HTML report file beside the APK
 
 ## Run
 
-From the project root:
-
 ```bash
-gradle run --args="/path/to/app.apk"
+gradle run
 ```
 
-Example:
-
-```bash
-gradle run --args="/Users/yourname/Desktop/sample.apk"
-```
-
-The app will:
-- print a full report to the terminal
-- create a report file in the same folder as the APK, for example:
-  `sample_report.html`
+Then click the Browse button and choose an APK file.
 
 ## Build
 
@@ -52,6 +26,11 @@ The app will:
 gradle build
 ```
 
-## Notes
+## Project output
 
-This APK reader inspects the APK archive and Android manifest. It does not run the application or emulate device behavior.
+The app opens as a desktop window with:
+- a file selection panel
+- a summary card area
+- a detailed HTML report viewer
+
+This is a static APK analyzer that reads the APK archive and manifest, without executing the app itself.
