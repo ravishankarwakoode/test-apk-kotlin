@@ -16,6 +16,12 @@ import javax.swing.border.EmptyBorder
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.xml.parsers.DocumentBuilderFactory
 
+fun main() {
+    SwingUtilities.invokeLater {
+        ApkReportApp().isVisible = true
+    }
+}
+
 private data class ApkReport(
     val fileName: String,
     val fileSizeBytes: Long,
@@ -35,12 +41,6 @@ private data class ApkReport(
     val nativeLibraries: List<String>,
     val metaInfFiles: List<String>
 )
-
-fun main() {
-    SwingUtilities.invokeLater {
-        ApkReportApp().isVisible = true
-    }
-}
 
 class ApkReportApp : JFrame("APK Analyzer Pro") {
     private val fileField = JTextField()
@@ -227,170 +227,168 @@ class ApkReportApp : JFrame("APK Analyzer Pro") {
         val title: String,
         val value: String
     )
+}
 
-    private fun analyzeApk(apkFile: File): ApkReport {
-        require(apkFile.exists()) { "APK file does not exist: ${apkFile.absolutePath}" }
+fun analyzeApk(apkFile: File): ApkReport {
+    require(apkFile.exists()) { "APK file does not exist: ${apkFile.absolutePath}" }
 
-        ZipFile(apkFile).use { zip ->
-            val manifestEntry = zip.getEntry("AndroidManifest.xml")
-                ?: throw IllegalArgumentException("AndroidManifest.xml not found in APK")
+    ZipFile(apkFile).use { zip ->
+        val manifestEntry = zip.getEntry("AndroidManifest.xml")
+            ?: throw IllegalArgumentException("AndroidManifest.xml not found in APK")
 
-            val document = DocumentBuilderFactory.newInstance().apply {
-                isNamespaceAware = true
-            }.newDocumentBuilder().parse(zip.getInputStream(manifestEntry))
+        val document = DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
+        }.newDocumentBuilder().parse(zip.getInputStream(manifestEntry))
 
-            val root = document.documentElement
-            val packageName = root.getAttribute("package").trim()
+        val root = document.documentElement
+        val packageName = root.getAttribute("package").trim()
 
-            val appNode = getSingleElementByTagName(root, "application")
-            val appLabel = appNode?.let { getAndroidAttribute(it, "label") } ?: "Unknown"
-            val appIcon = appNode?.let { getAndroidAttribute(it, "icon") } ?: "Unknown"
+        val appNode = getSingleElementByTagName(root, "application")
+        val appLabel = appNode?.let { getAndroidAttribute(it, "label") } ?: "Unknown"
+        val appIcon = appNode?.let { getAndroidAttribute(it, "icon") } ?: "Unknown"
 
-            val usesSdkNode = getSingleElementByTagName(root, "uses-sdk")
-            val minSdk = usesSdkNode?.let { getAndroidAttribute(it, "minSdkVersion") } ?: "Unknown"
-            val targetSdk = usesSdkNode?.let { getAndroidAttribute(it, "targetSdkVersion") } ?: "Unknown"
-            val versionName = getAndroidAttribute(root, "versionName")
-            val versionCode = getAndroidAttribute(root, "versionCode")
+        val usesSdkNode = getSingleElementByTagName(root, "uses-sdk")
+        val minSdk = usesSdkNode?.let { getAndroidAttribute(it, "minSdkVersion") } ?: "Unknown"
+        val targetSdk = usesSdkNode?.let { getAndroidAttribute(it, "targetSdkVersion") } ?: "Unknown"
+        val versionName = getAndroidAttribute(root, "versionName")
+        val versionCode = getAndroidAttribute(root, "versionCode")
 
-            val permissions = mutableListOf<String>()
-            val permissionNodes = document.getElementsByTagName("uses-permission")
-            for (i in 0 until permissionNodes.length) {
-                val node = permissionNodes.item(i) as Element
-                val permissionName = getAndroidAttribute(node, "name")
-                if (permissionName.isNotBlank()) {
-                    permissions.add(permissionName)
-                }
-            }
-
-            val activities = collectComponentNames(document, "activity")
-            val services = collectComponentNames(document, "service")
-            val receivers = collectComponentNames(document, "receiver")
-            val providers = collectComponentNames(document, "provider")
-
-            val nativeLibraries = mutableListOf<String>()
-            val metaInfFiles = mutableListOf<String>()
-
-            zip.entries().asSequence().forEach { entry ->
-                val name = entry.name
-                if (name.startsWith("lib/")) nativeLibraries.add(name)
-                if (name.startsWith("META-INF/")) metaInfFiles.add(name)
-            }
-
-            return ApkReport(
-                fileName = apkFile.name,
-                fileSizeBytes = apkFile.length(),
-                sha256 = computeSha256(apkFile),
-                packageName = packageName,
-                versionName = versionName.ifBlank { "Unknown" },
-                versionCode = versionCode.ifBlank { "Unknown" },
-                minSdk = minSdk,
-                targetSdk = targetSdk,
-                appLabel = appLabel,
-                appIcon = appIcon,
-                permissions = permissions.distinct(),
-                activities = activities.distinct(),
-                services = services.distinct(),
-                receivers = receivers.distinct(),
-                providers = providers.distinct(),
-                nativeLibraries = nativeLibraries.distinct(),
-                metaInfFiles = metaInfFiles.distinct()
-            )
-        }
-    }
-
-    private fun getSingleElementByTagName(root: Element, tagName: String): Element? {
-        val elements = root.getElementsByTagName(tagName)
-        return if (elements.length > 0) elements.item(0) as? Element else null
-    }
-
-    private fun collectComponentNames(document: org.w3c.dom.Document, tagName: String): List<String> {
-        val items = mutableListOf<String>()
-        val elements = document.getElementsByTagName(tagName)
-        for (i in 0 until elements.length) {
-            val element = elements.item(i) as Element
-            val name = getAndroidAttribute(element, "name")
-            if (name.isNotBlank()) items.add(name)
-        }
-        return items
-    }
-
-    private fun getAndroidAttribute(element: Element, attributeName: String): String {
-        val attributes = element.attributes
-        for (i in 0 until attributes.length) {
-            val attribute = attributes.item(i)
-            val attrName = attribute.nodeName
-            if (attrName == attributeName || attrName.endsWith(":$attributeName")) {
-                return attribute.nodeValue
+        val permissions = mutableListOf<String>()
+        val permissionNodes = document.getElementsByTagName("uses-permission")
+        for (i in 0 until permissionNodes.length) {
+            val node = permissionNodes.item(i) as Element
+            val permissionName = getAndroidAttribute(node, "name")
+            if (permissionName.isNotBlank()) {
+                permissions.add(permissionName)
             }
         }
-        return ""
-    }
 
-    private fun computeSha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        FileInputStream(file).use { input ->
-            val buffer = ByteArray(8192)
-            var read: Int
-            while (input.read(buffer).also { read = it } != -1) {
-                digest.update(buffer, 0, read)
-            }
+        val activities = collectComponentNames(document, "activity")
+        val services = collectComponentNames(document, "service")
+        val receivers = collectComponentNames(document, "receiver")
+        val providers = collectComponentNames(document, "provider")
+
+        val nativeLibraries = mutableListOf<String>()
+        val metaInfFiles = mutableListOf<String>()
+
+        zip.entries().asSequence().forEach { entry ->
+            val name = entry.name
+            if (name.startsWith("lib/")) nativeLibraries.add(name)
+            if (name.startsWith("META-INF/")) metaInfFiles.add(name)
         }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
 
-    private fun buildHtmlReport(report: ApkReport): String {
-        val summaryTable = listOf(
-            "File Name" to report.fileName,
-            "File Size" to "${report.fileSizeBytes} bytes",
-            "SHA-256" to report.sha256,
-            "Package Name" to report.packageName,
-            "Version Name" to report.versionName,
-            "Version Code" to report.versionCode,
-            "Min SDK" to report.minSdk,
-            "Target SDK" to report.targetSdk,
-            "App Label" to report.appLabel,
-            "App Icon" to report.appIcon
+        return ApkReport(
+            fileName = apkFile.name,
+            fileSizeBytes = apkFile.length(),
+            sha256 = computeSha256(apkFile),
+            packageName = packageName,
+            versionName = versionName.ifBlank { "Unknown" },
+            versionCode = versionCode.ifBlank { "Unknown" },
+            minSdk = minSdk,
+            targetSdk = targetSdk,
+            appLabel = appLabel,
+            appIcon = appIcon,
+            permissions = permissions.distinct(),
+            activities = activities.distinct(),
+            services = services.distinct(),
+            receivers = receivers.distinct(),
+            providers = providers.distinct(),
+            nativeLibraries = nativeLibraries.distinct(),
+            metaInfFiles = metaInfFiles.distinct()
         )
-
-        fun section(title: String, data: List<String>): String {
-            val body = if (data.isEmpty()) "None" else data.joinToString("<br/>")
-            return "<h3>$title</h3><table border='1' cellpadding='7' cellspacing='0' style='width:100%;margin-bottom:18px;border-collapse:collapse'><tr><td>$body</td></tr></table>"
-        }
-
-        val summaryRows = summaryTable.joinToString("") { (key, value) ->
-            "<tr><td style='font-weight:bold;background:#f3f4f6;padding:8px'>$key</td><td style='padding:8px'>$value</td></tr>"
-        }
-
-        return """
-            <html>
-            <head>
-                <meta charset="UTF-8" />
-                <title>APK Full Report</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 24px; color: #1d1d1d; }
-                    table { width: 100%; border-collapse: collapse; }
-                    h2 { margin-top: 0; }
-                    h3 { margin: 18px 0 8px; }
-                    td { vertical-align: top; }
-                </style>
-            </head>
-            <body>
-                <h2>APK Full Report</h2>
-                <table border='1' cellpadding='8' cellspacing='0' style='border-collapse:collapse;width:100%;margin-bottom:20px'>
-                    $summaryRows
-                </table>
-
-                ${section("Permissions", report.permissions)}
-                ${section("Activities", report.activities)}
-                ${section("Services", report.services)}
-                ${section("Receivers", report.receivers)}
-                ${section("Providers", report.providers)}
-                ${section("Native Libraries", report.nativeLibraries)}
-                ${section("META-INF Files", report.metaInfFiles)}
-            </body>
-            </html>
-        """.trimIndent()
     }
 }
 
-// Note: The report is also saved as an HTML file next to the selected APK.
+private fun getSingleElementByTagName(root: Element, tagName: String): Element? {
+    val elements = root.getElementsByTagName(tagName)
+    return if (elements.length > 0) elements.item(0) as? Element else null
+}
+
+private fun collectComponentNames(document: org.w3c.dom.Document, tagName: String): List<String> {
+    val items = mutableListOf<String>()
+    val elements = document.getElementsByTagName(tagName)
+    for (i in 0 until elements.length) {
+        val element = elements.item(i) as Element
+        val name = getAndroidAttribute(element, "name")
+        if (name.isNotBlank()) items.add(name)
+    }
+    return items
+}
+
+private fun getAndroidAttribute(element: Element, attributeName: String): String {
+    val attributes = element.attributes
+    for (i in 0 until attributes.length) {
+        val attribute = attributes.item(i)
+        val attrName = attribute.nodeName
+        if (attrName == attributeName || attrName.endsWith(":$attributeName")) {
+            return attribute.nodeValue
+        }
+    }
+    return ""
+}
+
+private fun computeSha256(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    FileInputStream(file).use { input ->
+        val buffer = ByteArray(8192)
+        var read: Int
+        while (input.read(buffer).also { read = it } != -1) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+fun buildHtmlReport(report: ApkReport): String {
+    val summaryTable = listOf(
+        "File Name" to report.fileName,
+        "File Size" to "${report.fileSizeBytes} bytes",
+        "SHA-256" to report.sha256,
+        "Package Name" to report.packageName,
+        "Version Name" to report.versionName,
+        "Version Code" to report.versionCode,
+        "Min SDK" to report.minSdk,
+        "Target SDK" to report.targetSdk,
+        "App Label" to report.appLabel,
+        "App Icon" to report.appIcon
+    )
+
+    fun section(title: String, data: List<String>): String {
+        val body = if (data.isEmpty()) "None" else data.joinToString("<br/>")
+        return "<h3>$title</h3><table border='1' cellpadding='7' cellspacing='0' style='width:100%;margin-bottom:18px;border-collapse:collapse'><tr><td>$body</td></tr></table>"
+    }
+
+    val summaryRows = summaryTable.joinToString("") { (key, value) ->
+        "<tr><td style='font-weight:bold;background:#f3f4f6;padding:8px'>$key</td><td style='padding:8px'>$value</td></tr>"
+    }
+
+    return """
+        <html>
+        <head>
+            <meta charset="UTF-8" />
+            <title>APK Full Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 24px; color: #1d1d1d; }
+                table { width: 100%; border-collapse: collapse; }
+                h2 { margin-top: 0; }
+                h3 { margin: 18px 0 8px; }
+                td { vertical-align: top; }
+            </style>
+        </head>
+        <body>
+            <h2>APK Full Report</h2>
+            <table border='1' cellpadding='8' cellspacing='0' style='border-collapse:collapse;width:100%;margin-bottom:20px'>
+                $summaryRows
+            </table>
+
+            ${section("Permissions", report.permissions)}
+            ${section("Activities", report.activities)}
+            ${section("Services", report.services)}
+            ${section("Receivers", report.receivers)}
+            ${section("Providers", report.providers)}
+            ${section("Native Libraries", report.nativeLibraries)}
+            ${section("META-INF Files", report.metaInfFiles)}
+        </body>
+        </html>
+    """.trimIndent()
+}
